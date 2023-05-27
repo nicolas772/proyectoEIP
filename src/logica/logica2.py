@@ -22,22 +22,25 @@ def createAlternateMessage(min, max, turn):
         }
     return mensaje
 
-def manageSend(min, max, mensaje, connection, queue_name):
+def manageSend(min, max, mensaje, connection, queue_name, connection_queue_error, queue_error):
+    mensaje_json = json.dumps(mensaje)  # Convertir el objeto Python en una cadena JSON
     if isInRange(min, max, mensaje):
-        mensaje_json = json.dumps(mensaje)  # Convertir el objeto Python en una cadena JSON
         connection.send(body=mensaje_json, destination=queue_name, content_type="application/json")
         print('\n',"--> Mensaje JSON enviado a la cola.")
         print(f"--> min: {min} max: {max} valor: {mensaje['value']}.")
 
     else:
-        print('\n',"--> El mensaje no puede ser enviado.")
+        connection_queue_error.send(body=mensaje_json, destination=queue_error, content_type="application/json")
+        print('\n',"--> El mensaje esta fuera de rango. Enviando a cola de error.")
         print(f"--> min: {min} max: {max} valor: {mensaje['value']}.",'\n')
 
 def logica2(minRange, maxRange):
     print('\n', f'--> Envio de cola aleatorio entre {minRange} y {maxRange} [lat/min]', '\n')
     time.sleep(0.5)
     queue_name = "/queue/queue_sensor"
+    queue_error = "/queue/queue_error"
     connection = CONN.conect(queue_name)
+    connection_queue_error = CONN.conect(queue_error)
     print('Para dejar de enviar mensajes, pulse la tecla "E"', '\n')
     turn = True
     while not keyboard.is_pressed('e'):
@@ -49,7 +52,7 @@ def logica2(minRange, maxRange):
             mensaje = createAlternateMessage(minRange, maxRange, turn)
             turn = True
         
-        manageSend(minRange, maxRange, mensaje, connection, queue_name)
+        manageSend(minRange, maxRange, mensaje, connection, queue_name, connection_queue_error, queue_error)
         time.sleep(1)
 
     # Desconectar del servidor ActiveMQ
